@@ -17,8 +17,7 @@ without anything else.
 | Changing markets | `pmwsctl add` / `remove` while running | Edit the selection file and restart |
 | Monitoring | `pmwsctl status`, Prometheus metrics | Status line every 10 s, snapshot JSON, final report |
 
-[GUIDE.md](GUIDE.md) explains both in detail: install, run, read the output, change markets,
-the numbers, venue behaviour, and what is not built.
+[GUIDE.md](GUIDE.md) explains both: install, run, read the output, change markets.
 
 ## Prerequisites
 

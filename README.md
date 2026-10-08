@@ -18,6 +18,8 @@ without anything else.
 | Monitoring | `pmwsctl status`, Prometheus metrics | Status line every 10 s, snapshot JSON, final report |
 
 [GUIDE.md](GUIDE.md) explains both: install, run, read the output, change markets.
+[GUIDE-FOR-AGENTS.md](GUIDE-FOR-AGENTS.md) gives a coding agent the same path as ordered steps with
+completion criteria.
 
 ## Prerequisites
 

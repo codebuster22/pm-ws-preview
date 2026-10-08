@@ -1,0 +1,12 @@
+{
+ "generated_at": "2026-10-07T12:42:27Z",
+ "valid_until": "2026-12-31",
+ "note": "one expired row blocks a --serve run: prune or regenerate; end dates are the venue's market end, not kickoff",
+ "limitless": [
+  {"slug": "opensea-fdv-above-dollar500m-one-day-after-launch-1764857001399", "end_epoch": 1798779540, "title": "Opensea FDV above $500M one day after launch?"},
+  {"slug": "will-trump-acquire-greenland-before-2027-1768930762585", "end_epoch": 1798779540, "title": "Will Trump acquire Greenland before 2027?"},
+  {"slug": "opensea-fdv-above-dollar1b-one-day-after-launch-1764856992367", "end_epoch": 1798779540, "title": "Opensea FDV above $1B one day after launch?"},
+  {"slug": "metamask-fdv-above-dollar700m-one-day-after-launch-1764857258102", "end_epoch": 1798779540, "title": "Metamask FDV above $700M one day after launch?"}
+ ],
+ "polymarket": []
+}

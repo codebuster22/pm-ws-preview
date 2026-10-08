@@ -1,0 +1,39 @@
+[package]
+name = "pm-ws"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+rust-version = "1.98"
+description = "Ultra-low-latency WebSocket ingestion of complete native prediction-market events from Limitless and Polymarket: exact decimal decoding and bounded admission, with no order-book reconstruction"
+repository = "https://github.com/codebuster22/pm-ws-preview"
+keywords = ["prediction-markets", "websocket", "market-data", "low-latency", "polymarket"]
+categories = ["finance", "network-programming"]
+exclude = ["/bench", "/docs", "/.github", "/tests", "/check", "/about.hbs", "/about.toml", "/deny.toml", "/rust-toolchain.toml"]
+
+[lib]
+crate-type = ["lib"]
+
+[workspace]
+members = ["."]
+resolver = "3"
+
+[dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+tokio = { version = "=1.51.4", features = ["rt", "macros", "time", "net", "sync", "signal", "io-util"] }
+tokio-tungstenite = { version = "=0.30.0", features = ["rustls-tls-webpki-roots"] }
+rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+futures-util = { version = "=0.3.34", default-features = false, features = ["sink", "std"] }
+libc = { version = "=0.2.189", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+proptest = { version = "=1.11.0", default-features = false, features = ["std"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+incremental = false
+debug = "line-tables-only"
+debug-assertions = false
+overflow-checks = true

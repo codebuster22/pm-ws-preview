@@ -1,0 +1,17 @@
+# Template for pmwsd.toml: ./setup.sh renders it with this clone's absolute path and the
+# control socket path. Edit the markets here, then rerun setup.sh.
+control_socket = "__SOCKET__"
+metrics_listen = "127.0.0.1:9090"
+markets_per_shard = 100
+
+# Four Limitless markets that run until 31 December 2026. Replace them after that date, or
+# when one resolves early, with markets that have at least five days left.
+markets = [
+  "opensea-fdv-above-dollar500m-one-day-after-launch-1764857001399",
+  "will-trump-acquire-greenland-before-2027-1768930762585",
+  "opensea-fdv-above-dollar1b-one-day-after-launch-1764856992367",
+  "metamask-fdv-above-dollar700m-one-day-after-launch-1764857258102",
+]
+
+[delivery]
+directory = "__REPO__/run"

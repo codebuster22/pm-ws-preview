@@ -1,0 +1,6 @@
+/target
+/run
+/pmwsd.toml
+/pmwsd.empty.toml
+__pycache__/
+.DS_Store

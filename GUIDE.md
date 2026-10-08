@@ -161,7 +161,11 @@ pmwsd pid=<pid> shards=<n> markets=<n> socket=<path> metrics=<addr>
 
 The `metrics=<addr>` part appears only when `metrics_listen` is set. After this line the daemon prints nothing until it stops. Use `pmwsctl status` or the metrics endpoint to watch it. Each shard creates one segment file in the delivery directory. A clean stop removes it.
 
-<!-- LIVE: the pmwsd startup line from a run with pmwsd.toml -->
+From a run on 9 October 2026 with the seeded file. The home directory is elided from the path:
+
+```text
+pmwsd pid=46848 shards=1 markets=4 socket=/…/pm-ws-v1/run/pmwsd.sock metrics=127.0.0.1:9090
+```
 
 Stop it with Ctrl-C or `SIGTERM`. It prints one line per shard, then exits 0:
 
@@ -169,7 +173,11 @@ Stop it with Ctrl-C or `SIGTERM`. It prints one line per shard, then exits 0:
 shard <index>: connections=<n> subscriptions=<n> snapshots=<n> resolutions=<n> losses=<n> unrouted=<n> queue_age_max_us=<n> queue_age_p99_us=<n>
 ```
 
-<!-- LIVE: the per-shard exit lines after Ctrl-C -->
+The same run after about two minutes, during which the connection dropped twice:
+
+```text
+shard 0: connections=3 subscriptions=3 snapshots=13 resolutions=0 losses=8 unrouted=0 queue_age_max_us=228 queue_age_p99_us=228
+```
 
 | Exit code | Meaning |
 | --- | --- |
@@ -210,11 +218,76 @@ Every answer is pretty-printed JSON on stdout. Errors go to stderr as `pmwsctl: 
 
 `status` is one of `accepted`, `reconciling`, `live`, `removed`, `{"rejected": "<reason>"}` or `{"stale": "<reason>"}`. A rejection reason is `invalid_identifier`, `capacity_exceeded` or `delivery_unavailable`. A stale reason is `Gap`, `Disconnect`, `SubscriptionLost`, `LocalLoss`, `OrderingUnknown`, `Overload`, `ReplicaDivergence` or `recovery_base_unavailable`.
 
-<!-- LIVE: pmwsctl add output for one slug -->
+Adding a fifth market to the running daemon, then removing it. Four seconds after the `add`, `status` showed the market `established` and `live`:
+
+```json
+[
+  {
+    "slug": "opensea-fdv-above-dollar3b-one-day-after-launch-1764857000239",
+    "status": "accepted"
+  }
+]
+[
+  {
+    "slug": "opensea-fdv-above-dollar3b-one-day-after-launch-1764857000239",
+    "status": "removed"
+  }
+]
+```
 
 `status` returns `pid`, `rss_kib`, `answers_abandoned`, `attachments_refused`, `metrics_listen`, `shards` and `markets`. A shard's `reconciling` field and a market's `market.subscription` field show a change taking effect. `subscription` is one of `desired`, `subscribing`, `established` or `removing`. Each market row is `shard`, `pinned`, `leases` and a nested `market` object holding `slug`, `subscription`, `status`, `revision` and `continuity_epoch`.
 
-<!-- LIVE: pmwsctl status output, trimmed to one shard and one market -->
+`status` from the same run on Apple M1, 8 CPUs, trimmed to one shard and one market:
+
+```json
+{
+  "pid": 46848,
+  "rss_kib": 64064,
+  "answers_abandoned": 0,
+  "attachments_refused": 0,
+  "metrics_listen": "127.0.0.1:9090",
+  "shards": [
+    {
+      "shard": 0,
+      "connected": true,
+      "reconciling": false,
+      "desired": 4,
+      "segment": "pmws-e6baeb9ae9b6c688fdad6336bc7397c6-0.seg",
+      "segment_markets": 4,
+      "attachments": 0,
+      "queue_age": {
+        "samples": 6,
+        "last_micros": 176,
+        "max_micros": 216,
+        "p50_micros": 216,
+        "p99_micros": 216
+      },
+      "publish_latency": {
+        "samples": 4,
+        "last_micros": 198,
+        "max_micros": 269,
+        "p50_micros": 256,
+        "p99_micros": 269,
+        "p999_micros": 269
+      }
+    }
+  ],
+  "markets": [
+    {
+      "shard": 0,
+      "market": {
+        "slug": "will-trump-acquire-greenland-before-2027-1768930762585",
+        "subscription": "established",
+        "status": "live",
+        "revision": 1,
+        "continuity_epoch": 0
+      },
+      "pinned": true,
+      "leases": 0
+    }
+  ]
+}
+```
 
 To start with no markets, use the empty file and add them by hand:
 
@@ -251,7 +324,16 @@ These names are worth watching:
 | `pmws_shard_queue_age_p99_micros` | 99th-percentile sampled ingest queue age, in microseconds, as a bucket upper bound. |
 | `pmws_markets` | Markets the daemon holds for a book, across every shard. Daemon-wide: this line carries no `shard` label (the per-shard count is `pmws_shard_markets`). |
 
-<!-- LIVE: a few lines from curl 127.0.0.1:9090/metrics -->
+Six of the lines from the same run on Apple M1, 8 CPUs, about two minutes in:
+
+```text
+pmws_shard_connected{shard="0"} 1
+pmws_shard_frames_seen{shard="0"} 15
+pmws_shard_continuity_losses{shard="0"} 4
+pmws_shard_queue_age_p99_micros{shard="0"} 216
+pmws_shard_markets{shard="0"} 5
+pmws_markets 5
+```
 
 ## 4. Study the book
 
@@ -370,7 +452,37 @@ summary book snapshots_applied=<n> mutations_derived=<n> continuity_losses=<n> r
 
 The source for every format above is [src/main.rs](https://github.com/codebuster22/pm-ws-preview/blob/v1/src/main.rs).
 
-<!-- LIVE: v1 print-book -->
+A 60-second run on 9 October 2026 against the seeded Greenland market. About half a minute in, the connection dropped; the run reconnected, resubscribed and opened continuity epoch 1. Nothing is cut:
+
+```text
+book revision=0 authority=Synchronizing continuity_epoch=0 canonical_bids=[] canonical_asks=[] derived_complement_bids=[] derived_complement_asks=[]
+connected generation=1 replica=PublishingPrimary sid=BHIdKiZA8BsjNoE2AAHD ping_interval_ms=25000 ping_timeout_ms=60000 max_payload_bytes=1000000 subscription_generation=1
+unknown event name=system
+unknown event name=system
+source publishing primary=limitless-markets#1 standbys=[] standby_capacity=0
+orderbookUpdate slug=will-trump-acquire-greenland-before-2027-1768930762585 bids=2 asks=5 best_bid=0.003@863898323 best_ask=0.899@12362000 ts=2026-10-08T21:32:01.199Z
+book revision=1 authority=Live continuity_epoch=0 canonical_bids=[0.003@863898323,0.001@5000000000] canonical_asks=[0.899@12362000,0.9@91872889,0.95@100000000] derived_complement_bids=[0.101@12362000,0.1@91872889,0.05@100000000] derived_complement_asks=[0.997@863898323,0.999@5000000000]
+book revision=2 authority=Stale(Disconnect) continuity_epoch=0 canonical_bids=[0.003@863898323,0.001@5000000000] canonical_asks=[0.899@12362000,0.9@91872889,0.95@100000000] derived_complement_bids=[0.101@12362000,0.1@91872889,0.05@100000000] derived_complement_asks=[0.997@863898323,0.999@5000000000]
+continuity_loss continuity=Reconnect authority=Disconnect
+source none
+reconnecting generation=2 replica=PublishingPrimary delay_ms=1235
+source recovering replica=limitless-markets#2
+connected generation=2 replica=PublishingPrimary sid=LXMkcoAqfCgr4Iy6AAY9 ping_interval_ms=25000 ping_timeout_ms=60000 max_payload_bytes=1000000 subscription_generation=1
+unknown event name=system
+resubscribing generation=2 replica=PublishingPrimary
+book revision=3 authority=Live continuity_epoch=1 canonical_bids=[0.003@863898323,0.001@5000000000] canonical_asks=[0.899@12362000,0.9@91872889,0.95@100000000] derived_complement_bids=[0.101@12362000,0.1@91872889,0.05@100000000] derived_complement_asks=[0.997@863898323,0.999@5000000000]
+unknown event name=system
+source publishing primary=limitless-markets#2 standbys=[] standby_capacity=0
+orderbookUpdate slug=will-trump-acquire-greenland-before-2027-1768930762585 bids=2 asks=5 best_bid=0.003@863898323 best_ask=0.899@12362000 ts=2026-10-08T21:32:28.205Z
+unknown event name=system
+book revision=4 authority=Live continuity_epoch=1 canonical_bids=[0.003@863898323,0.001@5000000000] canonical_asks=[0.899@12362000,0.9@91872889,0.95@100000000] derived_complement_bids=[0.101@12362000,0.1@91872889,0.05@100000000] derived_complement_asks=[0.997@863898323,0.999@5000000000]
+orderbookUpdate slug=will-trump-acquire-greenland-before-2027-1768930762585 bids=2 asks=5 best_bid=0.003@863898323 best_ask=0.899@12362000 ts=2026-10-08T21:32:28.723Z
+summary frames_seen=10 connection_attempts=2 fenced_generations=0 fenced_events=0
+summary events orderbookUpdate=3 marketResolved=0 unknown=5
+summary diagnostics_dropped=0 overload_drops=0
+summary decode_failures=none
+summary book snapshots_applied=3 mutations_derived=0 continuity_losses=1 recovery_base_unavailable=0 observer_continuity_losses=0
+```
 
 ### 4.2 The consumers bbo.py and bbo.ts
 
@@ -445,7 +557,14 @@ error: market not installed in the segment
 
 A missing or invalid flag exits 2 in `bbo.py` and 1 in `bbo.ts`, with a usage line. A normal run exits 0 when `--seconds` ends.
 
-<!-- LIVE: v1 bbo -->
+Both consumers against the daemon above, on the Greenland seed. No mutation arrived in their windows, so each printed only its opening line:
+
+```text
+$ python3 examples/bbo.py --segment run/pmws-e6baeb9ae9b6c688fdad6336bc7397c6-0.seg --market will-trump-acquire-greenland-before-2027-1768930762585 --seconds 20 --events
+bbo revision=1 authority=Live best_bid=0.003@863898323 best_ask=0.899@12362000
+$ node examples/bbo.ts --segment run/pmws-e6baeb9ae9b6c688fdad6336bc7397c6-0.seg --market will-trump-acquire-greenland-before-2027-1768930762585 --seconds 10
+bbo revision=1 authority=Live best_bid=0.003@863898323 best_ask=0.899@12362000
+```
 
 ### 4.3 Your own consumer
 
@@ -467,23 +586,23 @@ def level_text(level):
 with pmws.Segment(path) as segment:
     state, stream = segment.resolve("limitless", "slug", slug).attach()
     print(f"revision={state.revision} authority={state.authority} "
-          f"best_bid={level_text(state.best('Bid'))} best_ask={level_text(state.best('Ask'))}")
+          f"best_bid={level_text(state.best('Bid'))} best_ask={level_text(state.best('Ask'))}", flush=True)
     generation = segment.publication_generation()
     while True:
         try:
             event = stream.next_event()
         except pmws.PmwsContinuityLost as loss:
             state = stream.reattach()
-            print(f"continuity_lost reason={loss.reason} reattach revision={state.revision}")
+            print(f"continuity_lost reason={loss.reason} reattach revision={state.revision}", flush=True)
             continue
         if event is None:
             changed = segment.wait(generation, spin_micros=200, timeout_ms=1000)
             generation = generation if changed is None else changed
         elif isinstance(event, pmws.Resolution):
-            print(f"resolution revision={event.revision} outcome={event.winning_outcome}")
+            print(f"resolution revision={event.revision} outcome={event.winning_outcome}", flush=True)
         else:
             print(f"mutation revision={event.revision} side={event.side} price={event.price} "
-                  f"qty={event.old_quantity}->{event.new_quantity}")
+                  f"qty={event.old_quantity}->{event.new_quantity}", flush=True)
 ```
 
 Calls used, each as `bindings/python/pmws.py` declares it:
@@ -572,7 +691,14 @@ resolution revision=<revision> outcome=<winning_outcome>
 continuity_lost reason=<reason> reattach revision=<revision>
 ```
 
-<!-- LIVE: first lines printed by follow.py against a seeded market -->
+Against the daemon above. `follow.py` ran for 20 s after a fresh start; `follow.ts` ran later in the longer run, after two reconnects had moved the revision to 3:
+
+```text
+$ PYTHONPATH=bindings/python python3 follow.py run/pmws-e6baeb9ae9b6c688fdad6336bc7397c6-0.seg will-trump-acquire-greenland-before-2027-1768930762585
+revision=1 authority=Live best_bid=0.003@863898323 best_ask=0.899@12362000
+$ node follow.ts run/pmws-e6baeb9ae9b6c688fdad6336bc7397c6-0.seg will-trump-acquire-greenland-before-2027-1768930762585
+revision=3 authority=Live best_bid=0.003@863898323 best_ask=0.899@12362000
+```
 
 What the scripts leave out:
 
@@ -699,11 +825,11 @@ The seeded files:
 
 `valid_until` is the earliest market end in the file. Market ends are the venue's end dates, not kickoff times.
 
-[`bench/discover_sports.py`](https://github.com/codebuster22/pm-ws-preview/blob/v2/bench/discover_sports.py) rebuilds the Polymarket files. It needs `curl`. It sends `GET https://gamma-api.polymarket.com/events` for one tag at a time. The default tags are `nfl` and `college-football`. It makes at most three requests per tag, half a second apart. It writes descriptors only.
+[`bench/discover_sports.py`](https://github.com/codebuster22/pm-ws-preview/blob/v2/bench/discover_sports.py) rebuilds the Polymarket files. It needs `curl`. It sends `GET https://gamma-api.polymarket.com/events` for one tag at a time. The default tags are `nfl` and `cfb`. It asks for the newest listings first and keeps at most four markets per event, so one game's props do not fill the file. It makes at most three requests per tag, half a second apart. It writes descriptors only.
 
 ```sh
-python3 bench/discover_sports.py --output selections/nfl-ncaa.json --min-days 5 --max-conditions 200
-python3 bench/discover_sports.py --output selections/mixed.json --merge-limitless selections/limitless.json
+python3 bench/discover_sports.py --output selections/nfl-ncaa.json --min-days 10 --max-conditions 200
+python3 bench/discover_sports.py --output selections/mixed.json --min-days 10 --merge-limitless selections/limitless.json
 python3 bench/discover_sports.py --prune selections/nfl-ncaa.json --output selections/nfl-ncaa.json
 ```
 
@@ -711,7 +837,8 @@ python3 bench/discover_sports.py --prune selections/nfl-ncaa.json --output selec
 | --- | --- |
 | `--output <path>` | Required. The file to write. |
 | `--min-days <n>` | Keep markets that end at least this many days from now. Default 5. |
-| `--max-conditions <n>` | Keep the first n conditions, ranked by game start. Default 200. Each condition is two targets. |
+| `--per-event <n>` | Markets kept per event, in the venue's order. Default 4. |
+| `--max-conditions <n>` | Keep the first n conditions: upcoming games by start time, then the rest. Default 200. Each condition is two targets. |
 | `--tag <slug>` | Gamma tag to fetch. Repeatable. |
 | `--pages <n>` | Pages of 100 events per tag. Default 3. |
 | `--merge-limitless <file>` | Copy that file's Limitless rows into the output. |
@@ -836,7 +963,22 @@ tape at end of input: lines=<a> events=<b> bytes=<c>
 
 Input that is not a tape line passes through unchanged.
 
-<!-- LIVE: v2 tape summary -->
+Five minutes on 9 October 2026 with `selections/mixed.json`: one Limitless socket with 4 markets and two Polymarket sockets with 100 conditions each, on Apple M1, 8 CPUs. The last 10-second table and the end-of-input table:
+
+```text
+tape last 10s: lines=257 events=257 bytes=133478
+  polymarket best_bid_ask         lines=74      events=74       bytes=21213
+  polymarket price_change         lines=183     events=183      bytes=112265
+tape at end of input: lines=9259 events=9657 bytes=5273179
+  limitless  marketCreated        lines=2       events=2        bytes=358
+  limitless  marketResolved       lines=5       events=5        bytes=875
+  limitless  orderbookUpdate      lines=4       events=4        bytes=1874
+  limitless  system               lines=3       events=3        bytes=492
+  polymarket best_bid_ask         lines=2748    events=2748     bytes=787406
+  polymarket book                 lines=2       events=400      bytes=298455
+  polymarket new_market           lines=104     events=104      bytes=264580
+  polymarket price_change         lines=6391    events=6391     bytes=3919139
+```
 
 ### 5.5 Snapshot and report
 
@@ -863,6 +1005,27 @@ python3 bench/snapshot_summary.py "$RUN/report.json"
 shard <i> <venue> <stream> generation=<n> connected=<true|false> covered=<a>/<b> received=<n> decoded=<n> faults=<json> controls=<json>
   family                   events    p50 µs    p99 µs      max µs
   <family>                 <n>       ≤<n>      ≤<n>        <x>
+```
+
+The report of the five-minute `selections/mixed.json` run above, on Apple M1, 8 CPUs. It ended at `--max-seconds`, so its reason is `serve_max_seconds`. One Polymarket socket logged three failed connection attempts before it stayed up:
+
+```text
+runs/20261009-030730/report.json: schema=pm-ws-native-upstream-v2 reason=serve_max_seconds qualified=false
+  measured window: 245s
+shard 0 limitless limitless-0 generation=2 connected=false covered=4/4 received=27 decoded=14 faults={} controls={"engineio_open": 1, "engineio_ping": 11, "engineio_pong_queued": 11, "namespace_connect": 1}
+  family                   events    p50 µs    p99 µs      max µs
+  marketCreated                 2        ≤6       ≤25      24.333
+  marketResolved                3       ≤17       ≤44      43.917
+shard 1 polymarket polymarket-1 generation=2 connected=false covered=200/200 received=4206 decoded=4405 faults={} controls={"ping_sent": 30, "pong": 30}
+  family                   events    p50 µs    p99 µs      max µs
+  price_change               2376       ≤27      ≤117    1075.709
+  best_bid_ask                684       ≤14       ≤84     914.000
+  new_market                   43       ≤59      ≤282     281.167
+shard 2 polymarket polymarket-0 generation=5 connected=false covered=200/200 received=5039 decoded=5238 faults={"connect_failed": 3} controls={"ping_sent": 29, "pong": 29}
+  family                   events    p50 µs    p99 µs      max µs
+  price_change               2578       ≤28      ≤122     604.167
+  best_bid_ask               1490       ≤13       ≤71   10389.375
+  new_market                   43       ≤55      ≤130     129.208
 ```
 
 | Part | Meaning |
@@ -1079,7 +1242,7 @@ Both selected feeds are open, so neither preview captures a credential. The venu
   - There is no control channel unless you pass `--control-socket`.
 - A `--serve` run needs every selection row to end in the future. One expired row blocks the run.
   - The four seeded Limitless markets in `selections/limitless.json` run until 31 December 2026.
-  - The NFL and college-football files are generated by [`bench/discover_sports.py`](https://github.com/codebuster22/pm-ws-preview/blob/v2/bench/discover_sports.py), which stamps each file with its own `valid_until` (the earliest row end). Regenerate with `python3 bench/discover_sports.py --output selections/nfl-ncaa.json`, or prune expired rows with `--prune`.
+  - The NFL and college-football files are generated by [`bench/discover_sports.py`](https://github.com/codebuster22/pm-ws-preview/blob/v2/bench/discover_sports.py), which stamps each file with its own `valid_until` (the earliest row end). Regenerate with `python3 bench/discover_sports.py --output selections/nfl-ncaa.json --min-days 10`, or prune expired rows with `--prune`.
 - Exit code 2 when `--max-seconds` is reached is normal for a serve run. Under `--serve`, Ctrl-C or SIGTERM exits 0; without `--serve`, a signal exits 2 too. Without `--serve`, a run exits 2 unless it qualifies, and qualifying needs events from both venues. Read `reason` in the final report. The report is written before the daemon exits. `--max-seconds` may not exceed 14400.
 - `--output` must not exist before the run. A killed process (SIGKILL) leaves no final report, only the last snapshot.
 - Faults appear as a count (`faults=<n>`) in the status line, with no line per fault. Counts by family exist. Byte counts by family do not, because bytes are recorded per batch.
